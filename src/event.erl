@@ -5,18 +5,18 @@
 -record(state, {subscriber, name="", timeouts_list}).
 
 
-start(EventName, Timeout) ->
-  spawn(?MODULE, init, [self(), EventName, Timeout]).
+start(EventName, DateTime) ->
+  spawn(?MODULE, init, [self(), EventName, DateTime]).
 
 
-start_link(EventName, Timeout) ->
-  spawn_link(?MODULE, init, [self(), EventName, Timeout]).
+start_link(EventName, DateTime) ->
+  spawn_link(?MODULE, init, [self(), EventName, DateTime]).
 
 
-init(Subscriber, EventName, Timeout) ->
+init(Subscriber, EventName, DateTime) ->
   loop(#state{subscriber = Subscriber,
               name = EventName,
-              timeouts_list = normalize_timeouts(Timeout)}).
+              timeouts_list = datetime_to_timeouts_list(DateTime)}).
 
 
 loop(S = #state{subscriber = Subscriber, timeouts_list = [Timeout | Next]}) ->
@@ -33,6 +33,16 @@ loop(S = #state{subscriber = Subscriber, timeouts_list = [Timeout | Next]}) ->
           loop(S#state{timeouts_list = Next})
       end
   end.
+
+
+datetime_to_timeouts_list(DateTime = {{_, _, _}, {_, _, _}}) ->
+  Now = calendar:local_time(),
+  Seconds = calendar:datetime_to_gregorian_seconds(DateTime) -
+            calendar:datetime_to_gregorian_seconds(Now),
+  Timeout = if Seconds > 0 -> Seconds;
+               Seconds =< 0 -> 0
+            end,
+  normalize_timeouts(Timeout).
 
 
 %% Because Erlang's 'after' is limited to about 49 days (49*24*60*60*1000) in
