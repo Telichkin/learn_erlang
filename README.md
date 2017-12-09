@@ -1,3 +1,3 @@
-# erl_event_server
+# Learn Erlang
 
-Event Server Application from ["Learn you some Erlang from great good!"](http://learnyousomeerlang.com)
+Learn Erlang with ["Learn you some Erlang from great good!"](http://learnyousomeerlang.com)
