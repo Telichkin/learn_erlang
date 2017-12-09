@@ -1,4 +1,4 @@
--module(event_server).
+-module(es_event_server).
 
 %% API
 -export([loop/1, init/0, start/0, start_link/0, terminate/0, subscribe/1, add_event/3, cancel/1, wait_messages/1]).
@@ -86,7 +86,7 @@ loop(State = #state{}) ->
     {Pid, MsgRef, {add, Name, Description, DateTime}} ->
       case valid_datetime(DateTime) of
         true ->
-          EventPid = event:start_link(Name, DateTime),
+          EventPid = es_event:start_link(Name, DateTime),
           NewEvents = orddict:store(Name, #event{name = Name,
                                                  description = Description,
                                                  pid = EventPid,
@@ -101,7 +101,7 @@ loop(State = #state{}) ->
     {Pid, MsgRef, {cancel, Name}} ->
       NewEvents = case orddict:find(Name, State#state.events) of
         {ok, Event} ->
-          event:cancel(Event#event.pid),
+          es_event:cancel(Event#event.pid),
           orddict:erase(Name, State#state.events);
         error ->
           State#state.events

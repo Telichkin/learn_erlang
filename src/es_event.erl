@@ -1,4 +1,4 @@
--module(event).
+-module(es_event).
 
 %% API
 -export([start/2, start_link/2, cancel/1, init/3]).

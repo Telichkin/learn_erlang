@@ -1,4 +1,4 @@
--module(event_server_sup).
+-module(es_supervisor).
 
 %% API
 -export([loop/1, init/1, start_link/2, start/2]).
