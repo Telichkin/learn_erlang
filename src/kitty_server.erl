@@ -1,7 +1,8 @@
 -module(kitty_server).
 
 %% API
--export([start_link/0, order_cat/4, return_cat/2, close_shop/1]).
+-export([start_link/0, order_cat/4, return_cat/2, close_shop/1,
+         init/1, handle_call/3, handle_cast/2]).
 
 -record(cat, {name,
               color=green,
@@ -9,78 +10,45 @@
 
 
 start_link() ->
-  spawn_link(fun init/0).
+  generic_server:start_link(?MODULE, []).
 
 
-%% Sync call
 order_cat(Pid, Name, Color, Description) ->
-  Ref = erlang:monitor(process, Pid),
-  Pid ! {self(), Ref, {order, Name, Color, Description}},
-
-  receive
-    {Ref, Cat} ->
-      erlang:demonitor(Ref, [flush]),
-      Cat;
-    {'DOWN', Ref, process, Pid, Reason} ->
-      erlang:error(Reason)
-    after 5000 ->
-      erlang:error(timeout)
-  end.
+  generic_server:call(Pid, {order, Name, Color, Description}).
 
 
-%% Async call
 return_cat(Pid, Cat = #cat{}) ->
-  Pid ! {return, Cat},
-  ok.
+  generic_server:cast(Pid, {return, Cat}).
 
 
-%% Sync call
 close_shop(Pid) ->
-  Ref = erlang:monitor(process, Pid),
-  Pid ! {self(), Ref, terminate},
-
-  receive
-    {Ref, ok} ->
-      erlang:demonitor(Ref, [flush]),
-      ok;
-    {'DOWN', Ref, process, Pid, Reason} ->
-      erlang:error(Reason)
-    after 5000 ->
-      erlang:error(timeout)
-  end.
+  generic_server:call(Pid, terminate).
 
 
-init() ->
-  loop([]).
+%% Server functions
+init([]) -> [].
 
 
-loop(Cats) ->
-  receive
-    {Pid, Ref, {order, Name, Color, Description}} ->
-      NewCats = if Cats =:= [] ->
-                    Pid ! {Ref, #cat{name = Name,
-                                     color = Color,
-                                     description = Description}},
-                    Cats;
-                  Cats =/= [] ->
-                    Pid ! {Ref, hd(Cats)},
-                    tl(Cats)
-                end,
-      loop(NewCats);
+handle_call({order, Name, Color, Description}, From, Cats) ->
+  if Cats =:= [] ->
+      generic_server:reply(From, #cat{name = Name,
+                                      color = Color,
+                                      description = Description}),
+      Cats;
+    Cats =/= [] ->
+      generic_server:reply(From, hd(Cats)),
+      tl(Cats)
+  end;
 
-    {return, Cat = #cat{}} ->
-      loop([Cat | Cats]);
+handle_call(terminate, From, Cats) ->
+  generic_server:reply(From, ok),
+  terminate(Cats).
 
-    {Pid, Ref, terminate} ->
-      Pid ! {Ref, ok},
-      terminate(Cats);
 
-    Unknown ->
-      io:format("Unknown message: ~p~n", [Unknown]),
-      loop(Cats)
-  end.
+handle_cast({return, Cat = #cat{}}, Cats) ->
+  [Cat | Cats].
 
 
 terminate(Cats) ->
   [io:format("~p was set free.~n", [Cat#cat.name]) || Cat <- Cats],
-  ok.
+  exit(normal).
