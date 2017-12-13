@@ -7,7 +7,7 @@
          idle_wait/3, negotiate/2, negotiate/3, wait/2, ready/2, ready/3]).
 
 %% Public API
--export([open_trade/2, trade/1, make_offer/2, retract_offer/2]).
+-export([trade/2, make_offer/2, retract_offer/2, accept_trade/1, ready/1, cancel/1]).
 
 -record(state, {name="",
                 other,   %% Other FSM Pid
@@ -26,12 +26,12 @@ start_link(Name) ->
   gen_fsm:start_link(?MODULE, [Name], []).
 
 
-open_trade(OwnPid, OtherPid) ->
-  gen_fsm:sync_send_event(OwnPid, {negotiate, OtherPid}, 30000).
+trade(OwnPid, OtherPid) ->
+gen_fsm:sync_send_event(OwnPid, {negotiate, OtherPid}, 30000).
 
 
-trade(OwnPid) ->
-  gen_fsm:sync_send_event(OwnPid, accept_negotiate).
+accept_trade(OwnPid) ->
+gen_fsm:sync_send_event(OwnPid, accept_negotiate).
 
 
 make_offer(OwnPid, Item) ->
@@ -40,6 +40,14 @@ make_offer(OwnPid, Item) ->
 
 retract_offer(OwnPid, Item) ->
   gen_fsm:send_event(OwnPid, {retract_offer, Item}).
+
+
+ready(OwnPid) ->
+  gen_fsm:sync_send_event(OwnPid, ready, infinity).
+
+
+cancel(OwnPid) ->
+  gen_fsm:sync_send_all_state_event(OwnPid, cancel).
 
 
 %% FSM Callbacks
@@ -297,11 +305,11 @@ am_ready(OtherPid) ->
 
 %% Internal API used by both FSMs when doing the commit in the ready state.
 ack_trans(OtherPid) ->
-  gen_fsm:sync_send_event(OtherPid, ack).
+  gen_fsm:send_event(OtherPid, ack).
 
 
 ask_commit(OtherPid) ->
-  gen_fsm:sync_send_event(OtherPid, ack_comit).
+  gen_fsm:sync_send_event(OtherPid, ask_commit).
 
 
 do_commit(OtherPid) ->
