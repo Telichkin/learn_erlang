@@ -9,6 +9,11 @@
 init([]) -> {ok, []}.
 
 
+%%  Available responses:
+%%   {ok, NewState}
+%%   {ok, NewState, hibernate}, which puts the event manager itself into hibernation until the next event
+%%   remove_handler
+%%   {swap_handler, Args1, NewState, NewHandler, Args2}
 handle_event({set_teams, TeamA, TeamB}, State) ->
   curling_scoreboard_hw:set_teams(TeamA, TeamB),
   {ok, State};
