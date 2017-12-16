@@ -22,7 +22,7 @@ Learn Erlang with ["Learn you some Erlang from great good!"](http://learnyousome
     Explains in the chapter [It's a trap!](http://learnyousomeerlang.com/errors-and-processes#its-a-trap)
     
 
-## Dummy kitty server with OTP
+## Dummy kitty server with gen_server
 
 - [Handmade gen_server](https://github.com/Telichkin/learn_erlang/blob/master/src/generic_server.erl)
     - encapsulate generic server parts such as sync/async calls (call/cast), loop, init, reply, start and start_link
