@@ -59,23 +59,86 @@ init({Limit, ModuleFuncArg, OtpPoolSupervisor}) ->
   {ok, #state{limit = Limit, refs = gb_sets:empty()}}.
 
 
-handle_call(Request, From, State) ->
-  erlang:error(not_implemented).
+handle_call({run_task_strict, Args}, _From,
+            S=#state{limit = Limit, supervisor = WorkersSup, refs = Refs}) when Limit > 0 ->
+  {ok, Pid} = supervisor:start_child(WorkersSup, Args),
+  Ref = erlang:monitor(process, Pid),
+  {reply, {ok, Pid}, S#state{limit = Limit - 1, refs = gb_sets:add(Ref, Refs)}};
 
-handle_cast(Request, State) ->
-  erlang:error(not_implemented).
+handle_call({run_task_strict, _Args}, _From, S=#state{limit=Limit}) when Limit =< 0 ->
+  {reply, noalloc, S};
+
+handle_call({run_task_sync, Args}, _From,
+            S=#state{limit = Limit, supervisor = WorkerSup, refs = Refs}) when Limit > 0 ->
+  {ok, Pid} = supervisor:start_child(WorkerSup, Args),
+  Ref = erlang:monitor(process, Pid),
+  {reply, {ok, Pid}, S#state{limit = Limit - 1, refs = gb_sets:add(Ref, Refs)}};
+
+handle_call({run_task_sync, Args}, From, S=#state{queue = Queue, limit = Limit}) when Limit =< 0 ->
+  {noreply, S#state{queue = queue:in({From, Args}, Queue)}};
+
+handle_call(stop, _From, State=#state{}) ->
+  {stop, normal, ok, State};
+
+handle_call(_Msg, _From, State=#state{}) ->
+  {noreply, State}.
+
+
+handle_cast({run_task_async, Args},
+            S=#state{limit = Limit, supervisor = WorkerSup, refs = Refs}) when Limit > 0 ->
+  {ok, Pid} = supervisor:start_child(WorkerSup, Args),
+  Ref = erlang:monitor(process, Pid),
+  {noreply, S#state{limit = Limit - 1, refs = gb_sets:add(Ref, Refs)}};
+
+handle_cast({run_task_async, Args}, S=#state{limit = Limit, queue = Queue}) when Limit =< 0 ->
+  {noreply, S#state{queue = queue:in(Args, Queue)}};
+
+handle_cast(_Msg, State=#state{}) ->
+  {noreply, State}.
+
 
 handle_info({start_worker_supervisor, OtpPoolSupervisor, ModuleFuncArg}, S=#state{}) ->
   {ok, Pid} = supervisor:start_child(OtpPoolSupervisor, ?WORKER_SPEC(ModuleFuncArg)),
   link(Pid),
   {noreply, S#state{supervisor = Pid}};
 
+%% Whenever a worker goes down, we're notified of it. And it's time to dequeue something.
+handle_info({'DOWN', Ref, process, _Pid, _}, S=#state{refs = Refs}) ->
+  io:format("Worker complete a task~n"),
+  case gb_sets:is_element(Ref, Refs) of
+    true ->
+      run_next_task(S#state{refs = gb_sets:delete(Ref, Refs)});
+    false ->
+      {noreply, S}
+  end;
+
 handle_info(Message, State) ->
   io:format("Unknown msg: ~p~n", [Message]),
   {ok, State}.
 
-terminate(Reason, State) ->
-  erlang:error(not_implemented).
+terminate(_Reason, _State) ->
+  ok.
 
-code_change(OldVsn, State, Extra) ->
-  erlang:error(not_implemented).
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
+
+
+%%%%%%%%%%%
+%% Utils %%
+%%%%%%%%%%%
+run_next_task(S=#state{limit = Limit, supervisor = WorkerSup, refs = Refs}) ->
+  case queue:out(S#state.queue) of
+    {{value, {From, Args}}, Queue} ->
+      {ok, Pid} = supervisor:start_child(WorkerSup, Args),
+      Ref = erlang:monitor(process, Pid),
+      gen_server:reply(From, {ok, Pid}),
+      {noreply, S#state{refs = gb_sets:add(Ref, Refs), queue = Queue}};
+
+    {{value, Args}, Queue} ->
+      {ok, Pid} = supervisor:start_child(WorkerSup, Args),
+      Ref = erlang:monitor(process, Pid),
+      {noreply, S#state{refs = gb_sets:add(Ref, Refs), queue = Queue}};
+
+    {empty, _} ->
+      {noreply, S#state{limit = Limit + 1}}
+  end.
