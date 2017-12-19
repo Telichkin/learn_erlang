@@ -1,4 +1,4 @@
--module(otp_pool_worker).
+-module(otp_pool_test_worker).
 -behaviour(gen_server).
 
 -export([start_link/4, stop/1]).
