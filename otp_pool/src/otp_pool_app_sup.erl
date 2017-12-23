@@ -1,7 +1,7 @@
 -module(otp_pool_app_sup).
 -behaviour(supervisor).
 
--export([start_link/0, stop/0, start_pool/3, stop_pool/1]).
+-export([start_link/0, start_pool/3, stop_pool/1]).
 -export([init/1]).
 
 
@@ -10,18 +10,6 @@ start_link() ->
   %% This is because we know we will only have one otp_pool per Erlang
   %% node and we can give it a name without worrying about clashes.
   supervisor:start_link({local, otp_pool}, ?MODULE, []).
-
-
-
-%% Technically, a supervisor can not be killed in an easy way.
-%% Let's do it brutally!
-stop() ->
-  case whereis(otp_pool) of
-    Pid when is_pid(Pid) ->
-      exit(Pid, kill);
-    _ ->
-      ok
-  end.
 
 
 init([]) ->

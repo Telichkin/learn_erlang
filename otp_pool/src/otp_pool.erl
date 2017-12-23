@@ -10,7 +10,7 @@ start(normal, _Args) ->
 
 
 stop(_State) ->
-  otp_pool_app_sup:stop().
+  ok.
 
 
 start_pool(Name, Limit, {Module, Func, Args}) ->

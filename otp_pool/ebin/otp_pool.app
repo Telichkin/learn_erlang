@@ -19,6 +19,8 @@
     ]},
 
     {mod, {otp_pool, []}}     %% <- Defines a callback module for the 'application',
-                              %%    using the application behaviour
+                              %%    using the application behaviour. Without this tuple
+                              %%    our application will be a library application like
+                              %%    Erlang stdlib.
   ]
 }.
