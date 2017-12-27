@@ -1,7 +1,14 @@
 -module(erlcount_lib).
 
--export([find_erl_files/1, dequeue_and_run/1, find_all/1]).
+-export([find_erl_files/1, dequeue_and_run/1, get_pattern_count/2]).
 -include_lib("kernel/include/file.hrl").
+
+
+get_pattern_count(Re, Str) ->
+  case re:run(Str, Re, [global]) of
+    nomatch -> 0;
+    {match, FoundElements} -> length(FoundElements)
+  end.
 
 
 find_erl_files(DirectoryName) ->

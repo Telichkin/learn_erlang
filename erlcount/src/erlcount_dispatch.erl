@@ -34,38 +34,72 @@ init([]) ->
   case lists:all(fun valid_regex/1, Re) of
     true ->
       self() ! {start, Dir},
-      {ok, dispatching, #data{regex = [{R, 0} || R <- Re]}};
+      InitState = dispatching,
+      {ok, InitState, #data{regex = [{R, 0} || R <- Re]}};
     false ->
       {stop, invalid_regex}
   end.
 
 
-handle_event(Event, StateName, StateData) ->
-  erlang:error(not_implemented).
+%% The result messages are global, because they can be
+%% received in either 'dispatching' or 'listening' states.
+handle_event({complete, Regex, Ref, Count}, StateName, StateData=#data{regex = Re, refs = Refs}) ->
+  {Regex, OldCount} = lists:keyfind(Regex, 1, Re),
+  NewRe = lists:keyreplace(Regex, 1, Re, {Regex, OldCount + Count}),
+  NewData = StateData#data{regex = NewRe, refs = Refs -- [Ref]},
+
+  case state of
+    listening ->
+      listening(done, NewData);
+    _ ->
+      {next_state, StateName, NewData}
+  end.
 
 
-handle_sync_event(Event, From, StateName, StateData) ->
-  erlang:error(not_implemented).
+handle_sync_event(Event, _From, StateName, StateData) ->
+  io:format("Unexpected event ~p~n", [Event]),
+  {next_state, StateName, StateData}.
 
 
-handle_info(Info, StateName, StateData) ->
-  erlang:error(not_implemented).
+handle_info({start, Dir}, StateName, StateData) ->
+  gen_fsm:send_event(self(), erlcount_lib:find_erl_files(Dir)),
+  {next_state, StateName, StateData}.
 
 
-terminate(Reason, StateName, StateData) ->
-  erlang:error(not_implemented).
+terminate(_Reason, _StateName, _StateData) ->
+  ok.
 
 
-code_change(OldVsn, StateName, StateData, Extra) ->
-  erlang:error(not_implemented).
+code_change(_OldVsn, StateName, StateData, _Extra) ->
+  {ok, StateName, StateData}.
 
 
-dispatching(_Arg0, _Arg1) ->
-  erlang:error(not_implemented).
+dispatching({continue, FileName, FunNext}, StateData = #data{regex = Re, refs = Refs}) ->
+  StartRegexWorker = fun ({Regex, _Count}, NewRefs) ->
+    Ref = make_ref(),
+    otp_pool:run_task_async(?POOL, [self(), Ref, FileName, Regex]),
+    [Ref|NewRefs]
+  end,
+
+  NewRefs = lists:foldl(StartRegexWorker, Refs, Re),
+  gen_fsm:send_event(self(), FunNext()),
+  {next_state, dispatching, StateData#data{refs = NewRefs}};
+
+dispatching(done, StateData) ->
+  %% This is a special case. We can not assume that all messages have NOT
+  %% been received by the time we hit 'done'. As such, we directly move to
+  %% listening/2 without waiting for an external event.
+  listening(done, StateData).
 
 
-listening(_Arg0, _Arg1) ->
-  erlang:error(not_implemented).
+%% All 'done' messages received
+listening(done, #data{regex = Re, refs = []}) ->
+  [io:format("Regex ~s has ~p results~n", [R, F]) || {R, F} <- Re],
+  {stop, normal, done};
+
+listening(done, StateData) ->
+  %%  Still listening
+  {next_state, listening, StateData}.
 
 
 %%%%%%%%%%%

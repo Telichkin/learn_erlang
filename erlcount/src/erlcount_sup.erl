@@ -15,7 +15,7 @@ init([]) ->
   ChildSpec = {
     dispatch,
     {erlcount_dispatch, start_link, []},
-    trancient, 60000, worker, [erlcount_dispatch]
+    transient, 60000, worker, [erlcount_dispatch]
   },
 
-  {ok, RestartStrategy, [ChildSpec]}.
+  {ok, {RestartStrategy, [ChildSpec]}}.
