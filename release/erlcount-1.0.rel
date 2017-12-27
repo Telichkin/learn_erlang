@@ -1,0 +1,11 @@
+{
+  release,
+  {"erlcount", "1.0.0"},  %% <- Release name and version. Not connected with 'erlcount' application
+  {erts, "9.2"},  %% <- Erlang Run Time System
+  [
+    {kernel, "5.4.1"},
+    {stdlib, "3.4.3"},
+    {otp_pool, "1.0.0", permanent},
+    {erlcount, "1.0.0", transient}
+  ]
+}.
