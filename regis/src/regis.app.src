@@ -1,0 +1,12 @@
+{application, regis,
+ [{description, "Named processes registry"},
+  {vsn, "0.1.0"},
+  {registered, [regis]},
+  {mod, { regis, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []}
+ ]}.
