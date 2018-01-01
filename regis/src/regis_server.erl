@@ -1,5 +1,6 @@
 -module(regis_server).
 -behaviour(gen_server).
+-include_lib("stdlib/include/ms_transform.hrl").
 
 %% API
 -export([start_link/0, register/2, whereis/1, unregister/1]).
@@ -23,36 +24,37 @@ unregister(Name) ->
 
 
 init([]) ->
-  {ok, maps:new()}.
+  ets:new(?MODULE, [set, named_table, protected]),
+  {ok, ?MODULE}.
 
 
-handle_call({register, Name, Pid}, _From, NameToPid) when is_pid(Pid) ->
-  Pids = maps:values(NameToPid),
-  case lists:member(Pid, Pids) of
-    true ->
-      {reply, {error, pid_already_registered}, NameToPid};
-    false ->
-      case maps:find(Name, NameToPid) of
-        error ->
-          {reply, ok, maps:put(Name, Pid, NameToPid)};
-        {ok, _} ->
-          {reply, {error, name_already_registered}, NameToPid}
-      end
+handle_call({register, Name, Pid}, _From, NamedPidsTable) when is_pid(Pid) ->
+  Spec = ets:fun2ms(fun ({N, P}) when P == Pid; N == Name -> {N, P} end),
+
+  case ets:select(NamedPidsTable, Spec) of
+    [{_, Pid}] ->
+      {reply, {error, pid_already_registered}, NamedPidsTable};
+    [{Name, _}] ->
+      {reply, {error, name_already_registered}, NamedPidsTable};
+    [] ->
+      ets:insert(NamedPidsTable, {Name, Pid}),
+      {reply, ok, NamedPidsTable}
   end;
 
-handle_call({register, _Name, NotAPid}, _From, NameToPid) when not is_pid(NotAPid) ->
-  {reply, {error, not_pid}, NameToPid};
+handle_call({register, _Name, NotAPid}, _From, NamedPidsTable) when not is_pid(NotAPid) ->
+  {reply, {error, not_pid}, NamedPidsTable};
 
-handle_call({whereis, Name}, _From, NameToPid) ->
-  case maps:find(Name, NameToPid) of
-    error ->
-      {reply, undefined, NameToPid};
-    {ok, Pid} ->
-      {reply, Pid, NameToPid}
+handle_call({whereis, Name}, _From, NamedPidsTable) ->
+  case ets:lookup(NamedPidsTable, Name) of
+    [] ->
+      {reply, undefined, NamedPidsTable};
+    [{Name, Pid}] ->
+      {reply, Pid, NamedPidsTable}
   end;
 
-handle_call({unregister, Name}, _From, NameToPid) ->
-  {reply, ok, maps:remove(Name, NameToPid)}.
+handle_call({unregister, Name}, _From, NamedPidsTable) ->
+  ets:delete(NamedPidsTable, Name),
+  {reply, ok, NamedPidsTable}.
 
 
 handle_cast(_Request, _State) ->

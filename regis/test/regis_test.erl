@@ -98,10 +98,22 @@ unregister_already_registered_name_test_() ->
       [
         ?_assertEqual(ok, ?APP:unregister("pid name")),
         ?_assertEqual(undefined, ?APP:whereis("pid name")),
-        ?_assertEqual(ok, ?APP:register("pid name", Pid))
+        ?_assertEqual(ok, ?APP:register("pid name", Pid)),
+        ?_assertEqual(Pid, ?APP:whereis("pid name"))
       ]
     end
   }}.
+
+
+unregister_not_registered_name_test_() ->
+  {"Application should unregister not registered name without crash", {
+    setup, fun start_app/0, fun stop_app/1,
+    fun (ok) ->
+      ?_assertEqual(ok, ?APP:unregister("unknown"))
+    end
+  }}.
+
+%% TODO: Add unregister when process down
 
 
 start_app() ->
