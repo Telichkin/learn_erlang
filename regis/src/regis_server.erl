@@ -4,7 +4,7 @@
 
 %% API
 -export([start_link/0, register/2, whereis/1, unregister/1]).
--export([init/1, handle_call/3, handle_cast/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 
 start_link() ->
@@ -29,7 +29,7 @@ init([]) ->
 
 
 handle_call({register, Name, Pid}, _From, NamedPidsTable) when is_pid(Pid) ->
-  Spec = ets:fun2ms(fun ({N, P}) when P == Pid; N == Name -> {N, P} end),
+  Spec = ets:fun2ms(fun ({N, P, _}) when P == Pid; N == Name -> {N, P} end),
 
   case ets:select(NamedPidsTable, Spec) of
     [{_, Pid}] ->
@@ -37,7 +37,8 @@ handle_call({register, Name, Pid}, _From, NamedPidsTable) when is_pid(Pid) ->
     [{Name, _}] ->
       {reply, {error, name_already_registered}, NamedPidsTable};
     [] ->
-      ets:insert(NamedPidsTable, {Name, Pid}),
+      Ref = erlang:monitor(process, Pid),
+      ets:insert(NamedPidsTable, {Name, Pid, Ref}),
       {reply, ok, NamedPidsTable}
   end;
 
@@ -48,7 +49,7 @@ handle_call({whereis, Name}, _From, NamedPidsTable) ->
   case ets:lookup(NamedPidsTable, Name) of
     [] ->
       {reply, undefined, NamedPidsTable};
-    [{Name, Pid}] ->
+    [{Name, Pid, _Ref}] ->
       {reply, Pid, NamedPidsTable}
   end;
 
@@ -57,5 +58,13 @@ handle_call({unregister, Name}, _From, NamedPidsTable) ->
   {reply, ok, NamedPidsTable}.
 
 
-handle_cast(_Request, _State) ->
-  erlang:error(not_implemented).
+handle_cast(_Request, NamedPidsTable) ->
+  {noreply, NamedPidsTable}.
+
+
+handle_info({'DOWN', Ref, process, _Pid, _Reason}, NamedPidsTable) ->
+  ets:match_delete(NamedPidsTable, {'_', '_', Ref}),
+  {noreply, NamedPidsTable};
+
+handle_info(_Message, NamedPidsTable) ->
+  {noreply, NamedPidsTable}.

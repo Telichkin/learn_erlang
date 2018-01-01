@@ -24,7 +24,7 @@ register_process_test_() ->
   {"Application should register process pid and find it by name", {
     setup, fun start_app/0, fun stop_app/1,
     fun (ok) ->
-      Pid = generate_pid(),
+      Pid = generate_pid(100),
       ?APP:register("first pid", Pid),
       ?_assertEqual(Pid, ?APP:whereis("first pid"))
     end
@@ -47,8 +47,8 @@ register_already_registered_name_test_() ->
   {"Application should return error if name already registered", {
     setup, fun start_app/0, fun stop_app/1,
     fun (ok) ->
-      Pid1 = generate_pid(),
-      Pid2 = generate_pid(),
+      Pid1 = generate_pid(100),
+      Pid2 = generate_pid(100),
       ?APP:register("test", Pid1),
       [
         ?_assertEqual({error, name_already_registered}, ?APP:register("test", Pid2)),
@@ -62,7 +62,7 @@ register_already_registered_pid_test_() ->
   {"Application should return error if pid already registered", {
     setup, fun start_app/0, fun stop_app/1,
     fun (ok) ->
-      Pid = generate_pid(),
+      Pid = generate_pid(100),
       ?APP:register("test", Pid),
       [
         ?_assertEqual({error, pid_already_registered}, ?APP:register("test2", Pid)),
@@ -77,8 +77,8 @@ register_many_different_names_test_() ->
   {"Application should register different names with different pids", {
     setup, fun start_app/0, fun stop_app/1,
     fun (ok) ->
-      Pid1 = generate_pid(),
-      Pid2 = generate_pid(),
+      Pid1 = generate_pid(100),
+      Pid2 = generate_pid(100),
       ?APP:register("pid1", Pid1),
       ?APP:register("pid2", Pid2),
       [
@@ -93,7 +93,7 @@ unregister_already_registered_name_test_() ->
   {"Application should unregister already registered name", {
     setup, fun start_app/0, fun stop_app/1,
     fun (ok) ->
-      Pid = generate_pid(),
+      Pid = generate_pid(100),
       ?APP:register("pid name", Pid),
       [
         ?_assertEqual(ok, ?APP:unregister("pid name")),
@@ -113,7 +113,20 @@ unregister_not_registered_name_test_() ->
     end
   }}.
 
-%% TODO: Add unregister when process down
+
+auto_unregister_on_die_test_() ->
+  {"Application should unregister process when it dies", {
+    setup, fun start_app/0, fun stop_app/1,
+    fun (ok) ->
+      Pid = generate_pid(1000),
+      ?APP:register("pid", Pid),
+      exit(Pid, kill),
+      [
+        ?_assertEqual(undefined, ?APP:whereis("pid")),
+        ?_assertEqual(ok, ?APP:register("pid", generate_pid(100)))
+      ]
+    end
+  }}.
 
 
 start_app() ->
@@ -124,5 +137,5 @@ stop_app(ok) ->
   application:stop(?APP).
 
 
-generate_pid() ->
-  spawn(fun () -> ok end).
+generate_pid(TimeToLive) ->
+  spawn(fun () -> timer:sleep(TimeToLive), ok end).
