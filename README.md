@@ -40,3 +40,36 @@ Learn Erlang with ["Learn you some Erlang from great good!"](http://learnyousome
     - use `send_event`, `sync_send_event` and `sync_send_all_state_event` 
     - available sync callbacks answers [code](https://github.com/Telichkin/learn_erlang/blob/master/src/trade_fsm.erl#L111)
     - tested with [this code](http://learnyousomeerlang.com/static/erlang/trade_calls.erl)
+
+
+## OTP CheatSheet
+
+```erlang
+-module(module_name).
+-behaviour(supervisor).
+
+-export([init/1]).
+
+
+init(_) ->
+  {ok, {supervisor_flags(1), child_specs()}}.
+
+supervisor_flags(1) ->
+  supervisor_flags(one_for_one);  %% <- if one child fails only that child will be restarted
+
+supervisor_flags(2) ->
+  supervisor_flags(one_for_all);  %% <- if one child fails all child processes will be restarted
+
+supervisor_flags(3) ->
+  supervisor_flags(rest_for_one); %% <- if one child fails all child processes that started after that
+                                  %%    child will be restarted
+
+supervisor_flags(RestartStrategy) ->
+  MaxRestarts = 10,               %% <- if more than MaxRestarts occurs within MaxTime seconds
+  MaxTime = 1,                    %%    the supervisor terminates all child processes and then itself
+  {RestartStrategy, MaxRestarts, MaxTime}.
+
+
+child_specs() -> 
+  [].
+```  
