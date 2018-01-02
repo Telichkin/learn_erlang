@@ -17,8 +17,60 @@ Learn Erlang with ["Learn you some Erlang from great good!"](http://learnyousome
 -module(supervisor_cheatsheet).
 -behaviour(supervisor).
 
+-export([start_link/1, start_child/1]).
 -export([init/1]).
 
+%%%%%%%%%%%%
+%% Client %%
+%%%%%%%%%%%%
+% The supervisor is not registered and can be accessed only by Pid
+start_link(not_registered) ->
+  %% Supervisor process calls Module:init/1. To ensure a synchronized
+  %% startup procedure, start_link/2,3 does not return until Module:init/1 has
+  %% returned and all child processes have been started
+  Module = ?MODULE,
+
+  %% Arguments is any term that is passed as the argument to Module:init/1
+  Arguments = static,
+  supervisor:start_link(Module, Arguments);
+  %% Returns {ok, Pid} If the supervisor and its child processes are successfully created
+
+% The supervisor is registered and can be accessed by Name or Pid
+start_link(registered) ->
+  Module = ?MODULE,
+
+  N = random:uniform(3),
+  Arguments = dynamic,
+  supervisor:start_link(supervisor_name(N), Module, Arguments).
+
+supervisor_name(1) ->
+  %% Name should be an atom
+  Name = cheatsheet,
+  %% The supervisor is registered locally as Name using register/2
+  {local, Name};
+
+supervisor_name(2) ->
+  %% Name should be an atom
+  Name = cheatsheet,
+  %% The supervisor is registered globally as Name using global:register_name/2
+  {global, Name};
+
+supervisor_name(3) ->
+  Name = "any",
+  Module = register_server,
+
+  %% The supervisor is registered as Name using the registry represented by Module.
+  %% The Module callback must export the functions register_name/2, unregister_name/1, and send/2
+  {via, Module, Name}.
+
+%% Starts the child process defined in simple_one_for_one RestartStrategy
+start_child(ListOfArguments) ->
+  %% SupervisorName can be one of supervisor_name/1 above or Pid
+  SupervisorName = {local, cheatsheet},
+
+  %% The child process is started by appending ListOfArguments to the existing start function
+  %% arguments by calling apply(Module, Function, InitialArguments ++ ListOfArguments)
+  supervisor:start_child(SupervisorName, ListOfArguments).
 
 %%%%%%%%%%%%
 %% Server %%
@@ -57,7 +109,6 @@ supervisor_flags(RestartStrategy) ->
   MaxTime = 1,
   {RestartStrategy, MaxRestarts, MaxTime}.
 
-
 child_specs(static) ->
   [
     child_spec(1),
@@ -67,7 +118,7 @@ child_specs(static) ->
 
 child_specs(dynamic) ->
   N = random:uniform(3),
-  %% If start child processes in a dynamic manner the list of child 
+  %% If start child processes in a dynamic manner the list of child
   %% specifications should contains only one child specification
   [child_spec(N)].
 
