@@ -13,6 +13,9 @@ Learn Erlang with ["Learn you some Erlang from great good!"](http://learnyousome
 
 ## OTP CheatSheet
 
+### Supervisor
+![Supervisor CheatSheet](https://raw.githubusercontent.com/Telichkin/learn_erlang/master/cheatsheet/supervisor_cheatsheet.png)
+
 ```erlang
 -module(supervisor_cheatsheet).
 -behaviour(supervisor).
