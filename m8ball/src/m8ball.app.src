@@ -1,0 +1,18 @@
+{application, m8ball,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, [m8ball_app, m8ball_sup, m8ball_server]},
+  {mod, { m8ball_app, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[
+   {answers, {"Yes", "No", "Doubtful", "Of course", "Of course not"}}
+  ]},
+  {modules, [m8ball_app, m8ball_sup, m8ball_server]},
+
+  {maintainers, []},
+  {licenses, ["Apache 2.0"]},
+  {links, []}
+ ]}.
