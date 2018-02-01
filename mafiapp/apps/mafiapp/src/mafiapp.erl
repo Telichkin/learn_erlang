@@ -1,5 +1,6 @@
 -module(mafiapp).
 -behaviour(application).
+-include_lib("stdlib/include/ms_transform.hrl").
 
 -export([start/2, stop/1, install/1, add_friend/4, add_service/4, find_friend_by_name/1]).
 
@@ -78,5 +79,14 @@ find_friend_by_name(Name) ->
   mnesia:activity(transaction, FindFriendFun).
 
 
-find_services_for_name(_Name) ->
-  undefined.
+find_services_for_name(Name) ->
+  Services = ets:fun2ms(
+    fun(#mafiapp_services{from = FromName, to = ToName,
+                          date = Date, description = Description}) when FromName =:= Name ->
+         {to, ToName, Date, Description};
+       (#mafiapp_services{from = FromName, to = ToName,
+                          date = Date, description = Description}) when ToName =:= Name ->
+         {from, FromName, Date, Description}
+    end
+  ),
+  mnesia:select(mafiapp_services, Services).

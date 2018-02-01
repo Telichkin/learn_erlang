@@ -2,10 +2,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([init_per_suite/1, end_per_suite/1, all/0]).
--export([add_service_between_friends/1, find_friend_by_name/1]).
+-export([add_service_between_friends/1, find_friend_by_name/1, find_friend_with_services_by_name/1]).
 
 
-all() -> [add_service_between_friends, find_friend_by_name].
+all() -> [add_service_between_friends, find_friend_by_name, find_friend_with_services_by_name].
 
 init_per_suite(Config) ->
   DatabaseDir = ?config(db_dir, Config),
@@ -38,3 +38,16 @@ find_friend_by_name(_Config) ->
 
   UnknownFriend = make_ref(),
   undefined = mafiapp:find_friend_by_name(UnknownFriend).
+
+
+find_friend_with_services_by_name(_Config) ->
+  ok = mafiapp:add_friend("Test User 1", [], [], first),
+  ok = mafiapp:add_friend("Test User 2", [], [], second),
+
+  ok = mafiapp:add_service("Test User 1", "Test User 2", {31, 01, 2018}, "1 -> 2"),
+  ok = mafiapp:add_service("Test User 2", "Test User 1", {01, 02, 2018}, "2 -> 1"),
+
+  {"Test User 1", [], [], first, [
+    {to, "Test User 2", {31, 01, 2018}, "1 -> 2"},
+    {from, "Test User 2", {01, 02, 2018}, "2 -> 1"}
+  ]} = mafiapp:find_friend_by_name("Test User 1").
