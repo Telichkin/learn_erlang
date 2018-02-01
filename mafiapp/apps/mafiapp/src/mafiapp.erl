@@ -2,7 +2,8 @@
 -behaviour(application).
 -include_lib("stdlib/include/ms_transform.hrl").
 
--export([start/2, stop/1, install/1, add_friend/4, add_service/4, find_friend_by_name/1]).
+-export([start/2, stop/1, install/1, add_friend/4, add_service/4, find_friend_by_name/1, find_friend_by_expertise/1,
+         friend_debts/1]).
 
 -record(mafiapp_friends, {name,
                           contact = [],
@@ -62,7 +63,6 @@ add_service(FromName, ToName, Date, Description) ->
         {error, unknown_friend}
     end
   end,
-
   mnesia:activity(transaction, AddServiceFun).
 
 find_friend_by_name(Name) ->
@@ -75,18 +75,49 @@ find_friend_by_name(Name) ->
         undefined
     end
   end,
-
   mnesia:activity(transaction, FindFriendFun).
 
+find_friend_by_expertise(Expertise) ->
+  Pattern = #mafiapp_friends{_ = '_', expertise = Expertise},
+
+  FindFriendFun = fun() ->
+    Friends = mnesia:match_object(Pattern),
+    [{Name, ContactList, InfoList, Expertise, find_services_for_name(Name)} ||
+      #mafiapp_friends{name = Name, contact = ContactList, info = InfoList} <- Friends]
+  end,
+  mnesia:activity(transaction, FindFriendFun).
 
 find_services_for_name(Name) ->
-  Services = ets:fun2ms(
+  ServicesSpec = ets:fun2ms(
     fun(#mafiapp_services{from = FromName, to = ToName,
-                          date = Date, description = Description}) when FromName =:= Name ->
-         {to, ToName, Date, Description};
-       (#mafiapp_services{from = FromName, to = ToName,
-                          date = Date, description = Description}) when ToName =:= Name ->
-         {from, FromName, Date, Description}
+      date = Date, description = Description}) when FromName =:= Name ->
+      {to, ToName, Date, Description};
+      (#mafiapp_services{from = FromName, to = ToName,
+        date = Date, description = Description}) when ToName =:= Name ->
+        {from, FromName, Date, Description}
     end
   ),
-  mnesia:select(mafiapp_services, Services).
+  mnesia:select(mafiapp_services, ServicesSpec).
+
+friend_debts(Name) ->
+  DebtsCountListSpec = ets:fun2ms(
+    fun(#mafiapp_services{from = FromName, to = ToName}) when FromName =:= Name ->
+         {ToName, 1};
+       (#mafiapp_services{from = FromName, to = ToName}) when ToName =:= Name ->
+         {FromName, -1}
+    end
+  ),
+
+  DebtsCountList = mnesia:activity(
+    transaction,
+    fun() -> mnesia:select(mafiapp_services, DebtsCountListSpec) end),
+
+  DebtsCountDict = lists:foldl(
+    fun({Name, PlusOrMinusOne}, CountDict) ->
+      dict:update(Name, fun(Counter) -> Counter + PlusOrMinusOne end, PlusOrMinusOne, CountDict)
+    end,
+    dict:new(),
+    DebtsCountList
+  ),
+
+  lists:sort(dict:to_list(DebtsCountDict)).
