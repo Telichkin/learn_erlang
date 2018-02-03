@@ -3,11 +3,11 @@
 
 -export([init_per_suite/1, end_per_suite/1, all/0]).
 -export([add_service_between_friends/1, find_friend_by_name/1, find_friend_with_services_by_name/1,
-         find_friend_by_expertise/1, find_friends_number_of_debts/1]).
+         find_friend_by_expertise/1, find_friends_number_of_debts/1, add_and_find_and_kill_enemy/1]).
 
 
 all() -> [add_service_between_friends, find_friend_by_name, find_friend_with_services_by_name,
-          find_friend_by_expertise, find_friends_number_of_debts].
+          find_friend_by_expertise, find_friends_number_of_debts, add_and_find_and_kill_enemy].
 
 init_per_suite(Config) ->
   DatabaseDir = ?config(db_dir, Config),
@@ -79,3 +79,12 @@ find_friends_number_of_debts(_Config) ->
 
   UnknownFriend = make_ref(),
   [] = mafiapp:friend_debts(UnknownFriend).
+
+add_and_find_and_kill_enemy(_Config) ->
+  undefined = mafiapp:find_enemy("Andy"),
+  ok = mafiapp:add_enemy("Andy", [{bio, "Teacher"}, {quality, "Bad"}]),
+
+  {"Andy", [{bio, "Teacher"}, {quality, "Bad"}]} = mafiapp:find_enemy("Andy"),
+
+  ok = mafiapp:kill_enemy("Andy"),
+  undefined = mafiapp:find_enemy("Andy").

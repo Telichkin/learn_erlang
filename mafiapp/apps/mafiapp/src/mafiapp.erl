@@ -3,7 +3,7 @@
 -include_lib("stdlib/include/ms_transform.hrl").
 
 -export([start/2, stop/1, install/1, add_friend/4, add_service/4, find_friend_by_name/1, find_friend_by_expertise/1,
-         friend_debts/1]).
+  friend_debts/1, find_enemy/1, add_enemy/2, kill_enemy/1]).
 
 -record(mafiapp_friends, {name,
                           contact = [],
@@ -15,9 +15,12 @@
                            date,
                            description}).
 
+-record(mafiapp_enemies, {name,
+                          info = []}).
+
 
 start(_StartType = normal, _StartArg = []) ->
-  mnesia:wait_for_tables([mafiapp_friends, mafiapp_services], 5000),
+  mnesia:wait_for_tables([mafiapp_friends, mafiapp_services, mafiapp_enemies], 5000),
   mafiapp_sup:start_link().
 
 stop(_State) ->
@@ -36,6 +39,11 @@ install(Nodes) ->
     {index, [#mafiapp_services.to]},
     {disc_copies, Nodes},
     {type, bag}
+  ]),
+  mnesia:create_table(mafiapp_enemies, [
+    {attributes, record_info(fields, mafiapp_enemies)},
+    {disc_copies, Nodes},
+    {local_content, true}
   ]),
   application:stop(mnesia).
 
@@ -121,3 +129,25 @@ friend_debts(Name) ->
   ),
 
   lists:sort(dict:to_list(DebtsCountDict)).
+
+find_enemy(Name) ->
+  FindEnemy = fun() ->
+    mnesia:read({mafiapp_enemies, Name})
+  end,
+  case mnesia:activity(transaction, FindEnemy) of
+    [] -> undefined;
+    [#mafiapp_enemies{name = Name, info = Info}] -> {Name, Info}
+  end.
+
+add_enemy(Name, Info) ->
+  AddEnemy = fun() ->
+      mnesia:write(#mafiapp_enemies{name = Name, info = Info})
+  end,
+  mnesia:activity(transaction, AddEnemy).
+
+kill_enemy(Name) ->
+  KillEnemy = fun() ->
+    mnesia:delete({mafiapp_enemies, Name})
+  end,
+  mnesia:activity(transaction, KillEnemy).
+
